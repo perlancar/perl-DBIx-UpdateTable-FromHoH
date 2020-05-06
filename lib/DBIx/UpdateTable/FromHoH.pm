@@ -30,7 +30,7 @@ sub _eq {
 $SPEC{update_table_from_hoh} = {
     v => 1.1,
     summary => 'Update database table from hash-of-hash',
-    descriptiion => <<'_',
+    description => <<'_',
 
 Given a table `t1` like this:
 
