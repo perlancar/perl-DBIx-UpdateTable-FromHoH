@@ -29,6 +29,8 @@ my $res = update_table_from_hoh(
     hoh => $hoh,
     table => 't1',
     key_column => 'i',
+    extra_insert_columns => {col3=>'corge'},
+    extra_update_columns => {col3=>'baz'},
 );
 is_deeply($res, [200, "OK", {num_rows_inserted=>1, num_rows_deleted=>1, num_rows_updated=>1, num_rows_unchanged=>1}]);
 
@@ -37,8 +39,8 @@ is_deeply(
     $hoh_table,
     {
         1 => {i=>1, col1=>'a', col2=>'b', col3=>'foo'},
-        2 => {i=>2, col1=>'c', col2=>'d', col3=>'bar'},
-        4 => {i=>4, col1=>'e', col2=>'f', col3=>undef},
+        2 => {i=>2, col1=>'c', col2=>'d', col3=>'baz'},
+        4 => {i=>4, col1=>'e', col2=>'f', col3=>'corge'},
     });
 
 $res = update_table_from_hoh(

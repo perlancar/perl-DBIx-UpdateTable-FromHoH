@@ -92,6 +92,12 @@ _
             schema => 'bool*',
             default => 1,
         },
+        extra_insert_columns => {
+            schema => ['hos*'], # XXX or code
+        },
+        extra_update_columns => {
+            schema => ['hos*'], # XXX or code
+        },
     },
 };
 sub update_table_from_hoh {
@@ -144,19 +150,28 @@ sub update_table_from_hoh {
   UPDATE: {
         for my $key (sort keys %$hoh) {
             next unless exists $hoh_table->{$key};
-            my @changed_columns;
+            my @update_columns;
+            my @values;
             for my $column (@columns) {
                 next if $column eq $key_column;
                 unless (_eq($hoh_table->{$key}{$column}, $hoh->{$key}{$column})) {
-                    push @changed_columns, $column;
+                    push @update_columns, $column;
+                    push @values, $hoh->{$key}{$column};
                 }
             }
-            next unless @changed_columns;
+            next unless @update_columns;
+
+            for my $column (keys %{ $args{extra_update_columns} // {}}) {
+                next if grep { $column eq $_ } @columns;
+                push @update_columns, $column;
+                push @values, $args{extra_update_columns}{$column};
+            }
+
             $dbh->do("UPDATE $table SET ".
-                         join(",", map {"$_=?"} @changed_columns).
+                         join(",", map {"$_=?"} @update_columns).
                          " WHERE $key_column=?",
                      {},
-                     (map { $hoh->{$key}{$_} } @changed_columns), $key);
+                     @values, $key);
             $num_rows_updated++;
             $num_rows_unchanged--;
         }
@@ -164,10 +179,25 @@ sub update_table_from_hoh {
 
     my $num_rows_inserted = 0;
   INSERT: {
-        my $placeholders_str = join(",", map {"?"} @columns);
+        my @insert_columns = @columns;
+        my @extra_insert_columns = keys %{ $args{extra_insert_columns} // {} };
+        for my $column (@extra_insert_columns) { push @insert_columns, $column unless grep { $_ eq $column } @insert_columns }
+
+        my $insert_columns_str = join(",", @insert_columns);
+        my $placeholders_str = join(",", map {"?"} @insert_columns);
         for my $key (sort keys %$hoh) {
             unless (exists $hoh_table->{$key}) {
-                $dbh->do("INSERT INTO $table ($columns_str) VALUES ($placeholders_str)", {}, map {$_ eq $key_column ? $key : $hoh->{$key}{$_}} @columns);
+                my @values;
+                for my $column (@insert_columns) {
+                    if ($column eq $key_column) {
+                        push @values, $key;
+                    } elsif (grep { $column eq $_ } @extra_insert_columns) {
+                        push @values, $args{extra_insert_columns}{$column};
+                    } else {
+                        push @values, $hoh->{$key}{$column};
+                    }
+                }
+                $dbh->do("INSERT INTO $table ($insert_columns_str) VALUES ($placeholders_str)", {}, @values);
                 $num_rows_inserted++;
             }
         }
